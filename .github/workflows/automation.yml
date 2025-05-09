@@ -6,7 +6,7 @@ on:
 jobs:
   infinite_login:
     runs-on: ubuntu-latest
-    timeout-minutes: 43200  # Max allowed by GitHub (30 days)
+    timeout-minutes: 43200  # 30 days
 
     steps:
       - name: Checkout repository
@@ -27,10 +27,7 @@ jobs:
           PLP_EMAIL: ${{ secrets.PLP_EMAIL }}
           PLP_PASSWORD: ${{ secrets.PLP_PASSWORD }}
         run: |
-          echo "🚀 Starting hardened infinite login loop..."
-          
-          cat > login_runner.py <<EOF
-import asyncio
+          echo 'import asyncio
 import aiohttp
 import logging
 import os
@@ -66,7 +63,7 @@ class LoginAutomation:
             while True:
                 try:
                     await self.post_message()
-                    await asyncio.sleep(0.001)  # 1 millisecond
+                    await asyncio.sleep(0.001)
                 except aiohttp.ClientError as e:
                     logging.warning(f"❌ Client error: {e}")
                     await asyncio.sleep(1)
@@ -81,7 +78,7 @@ if __name__ == "__main__":
         except Exception as e:
             logging.critical(f"💥 Fatal error in main loop: {e}", exc_info=True)
             time.sleep(3)
-EOF
+' > login_runner.py
 
           python login_runner.py
 
