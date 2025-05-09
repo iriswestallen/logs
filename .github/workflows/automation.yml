@@ -2,13 +2,11 @@ name: PLP Login Automation
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/5 * * * *"  # Runs every 5 minutes
 
 jobs:
   infinite_login:
     runs-on: ubuntu-latest
-    timeout-minutes: 43200  # 30 days
+    timeout-minutes: 43200  # Max allowed by GitHub (30 days)
 
     steps:
       - name: Checkout repository
@@ -22,11 +20,75 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install aiohttp
+          pip install aiohttp python-dotenv
 
-      - name: Run infinite login loop
+      - name: Run hardened infinite loop
         env:
           PLP_EMAIL: ${{ secrets.PLP_EMAIL }}
           PLP_PASSWORD: ${{ secrets.PLP_PASSWORD }}
         run: |
-          python login_automation.py
+          echo "🚀 Starting hardened infinite login loop..."
+          
+          cat > login_runner.py <<EOF
+import asyncio
+import aiohttp
+import logging
+import os
+import time
+
+POST_URL = "https://your-api-url.com/login"  # Replace with actual URL
+EMAIL = os.getenv("PLP_EMAIL")
+PASSWORD = os.getenv("PLP_PASSWORD")
+
+logging.basicConfig(
+    filename="automation.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+
+class LoginAutomation:
+    def __init__(self):
+        self.session = None
+
+    async def post_message(self):
+        payload = {"email": EMAIL, "password": PASSWORD}
+        headers = {"Content-Type": "application/json"}
+        async with self.session.post(POST_URL, json=payload, headers=headers) as response:
+            if response.status == 200:
+                logging.info("✅ Post created successfully.")
+            else:
+                logging.warning(f"⚠️ Server responded: {response.status} - {await response.text()}")
+
+    async def run_forever(self):
+        connector = aiohttp.TCPConnector(limit=0)
+        timeout = aiohttp.ClientTimeout(total=None)
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as self.session:
+            while True:
+                try:
+                    await self.post_message()
+                    await asyncio.sleep(0.001)  # 1 millisecond
+                except aiohttp.ClientError as e:
+                    logging.warning(f"❌ Client error: {e}")
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    logging.error(f"🔥 Unexpected error: {e}", exc_info=True)
+                    await asyncio.sleep(2)
+
+if __name__ == "__main__":
+    while True:
+        try:
+            asyncio.run(LoginAutomation().run_forever())
+        except Exception as e:
+            logging.critical(f"💥 Fatal error in main loop: {e}", exc_info=True)
+            time.sleep(3)
+EOF
+
+          python login_runner.py
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-logs-${{ github.run_id }}
+          path: automation.log
+          retention-days: 7
