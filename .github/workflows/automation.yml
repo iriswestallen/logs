@@ -1,15 +1,25 @@
-name: PLP Login Automation
+name: PLP 50-Terminal Simulation
 
 on:
   workflow_dispatch:
 
 jobs:
-  infinite_login:
+  multi_terminal:
+    name: Terminal ${{ matrix.id }}
     runs-on: ubuntu-latest
-    timeout-minutes: 43200  # 30 days
+    timeout-minutes: 43200
+
+    strategy:
+      matrix:
+        id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+             11,12,13,14,15,16,17,18,19,20,
+             21,22,23,24,25,26,27,28,29,30,
+             31,32,33,34,35,36,37,38,39,40,
+             41,42,43,44,45,46,47,48,49,50]
+      max-parallel: 20  # GitHub limit — only 20 run at once
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -19,74 +29,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install aiohttp python-dotenv
+          pip install -U pip
+          pip install requests aiohttp python-dotenv
 
-      - name: Write and run resilient infinite script
+      - name: Run Terminal ${{ matrix.id }}
         env:
           PLP_EMAIL: ${{ secrets.PLP_EMAIL }}
           PLP_PASSWORD: ${{ secrets.PLP_PASSWORD }}
         run: |
-          cat <<EOF > login_runner.py
-import asyncio
-import aiohttp
-import logging
-import os
-import time
+          echo "🟢 Terminal ${{ matrix.id }} started"
+          touch terminal_${{ matrix.id }}.log
 
-POST_URL = "https://your-api-url.com/login"  # Replace with real endpoint
-EMAIL = os.getenv("PLP_EMAIL")
-PASSWORD = os.getenv("PLP_PASSWORD")
-
-logging.basicConfig(
-    filename="automation.log",
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-
-class LoginAutomation:
-    def __init__(self):
-        self.session = None
-
-    async def post_message(self):
-        payload = {"email": EMAIL, "password": PASSWORD}
-        headers = {"Content-Type": "application/json"}
-        async with self.session.post(POST_URL, json=payload, headers=headers) as response:
-            if response.status == 200:
-                logging.info("✅ Post created successfully.")
-            else:
-                logging.warning(f"⚠️ Server responded: {response.status} - {await response.text()}")
-
-    async def run_forever(self):
-        connector = aiohttp.TCPConnector(limit=0)
-        timeout = aiohttp.ClientTimeout(total=None)
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as self.session:
-            while True:
-                try:
-                    await self.post_message()
-                    await asyncio.sleep(0.001)
-                except aiohttp.ClientError as e:
-                    logging.warning(f"❌ Client error: {e}")
-                    await asyncio.sleep(1)
-                except Exception as e:
-                    logging.error(f"🔥 Unexpected error: {e}", exc_info=True)
-                    await asyncio.sleep(2)
-
-if __name__ == "__main__":
-    while True:
-        try:
-            asyncio.run(LoginAutomation().run_forever())
-        except Exception as e:
-            logging.critical(f"💥 Fatal error in main loop: {e}", exc_info=True)
-            time.sleep(3)
-EOF
-
-          python login_runner.py
-
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: automation-logs-${{ github.run_id }}
-          path: automation.log
-          retention-days: 7
+          while true; do
+            echo "[Terminal ${{ matrix.id }}] 🕒 $(date) - Running script..." | tee -a terminal_${{ matrix.id }}.log
+            python3 login_automation.py >> terminal_${{ matrix.id }}.log 2>&1 || echo "[Terminal ${{ matrix.id }}] ❌ Script failed" | tee -a terminal_${{ matrix.id }}.log
+            sleep 0.5
+          done
