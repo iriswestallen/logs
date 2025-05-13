@@ -1,22 +1,25 @@
-name: PLP 50-Terminal Simulation
+name: PLP 1000-Terminal Simulation
 
 on:
   workflow_dispatch:
 
 jobs:
   multi_terminal:
-    name: Terminal ${{ matrix.id }}
+    name: Terminal Batch ${{ matrix.batch }} - Terminal ${{ matrix.id }}
     runs-on: ubuntu-latest
-    timeout-minutes: 43200
+    timeout-minutes: 43200  # 30 days max runtime
 
     strategy:
       matrix:
+        batch: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                11,12,13,14,15,16,17,18,19,20,
+                21,22,23,24,25,26,27,28,29,30,
+                31,32,33,34,35,36,37,38,39,40,
+                41,42,43,44,45,46,47,48,49,50]
         id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-             11,12,13,14,15,16,17,18,19,20,
-             21,22,23,24,25,26,27,28,29,30,
-             31,32,33,34,35,36,37,38,39,40,
-             41,42,43,44,45,46,47,48,49,50]
-      max-parallel: 20  # GitHub limit — only 20 run at once
+             11,12,13,14,15,16,17,18,19,20]
+      max-parallel: 20  # GitHub's concurrent job limit
+      fail-fast: false
 
     steps:
       - name: Checkout code
@@ -32,16 +35,22 @@ jobs:
           pip install -U pip
           pip install requests aiohttp python-dotenv
 
-      - name: Run Terminal ${{ matrix.id }}
+      - name: Calculate terminal number
+        id: calc
+        run: |
+          TERMINAL_NUM=$(( (${{ matrix.batch }} - 1) * 20 + ${{ matrix.id }} ))
+          echo "TERMINAL_NUM=${TERMINAL_NUM}" >> $GITHUB_OUTPUT
+
+      - name: Run Terminal ${{ steps.calc.outputs.TERMINAL_NUM }}
         env:
           PLP_EMAIL: ${{ secrets.PLP_EMAIL }}
           PLP_PASSWORD: ${{ secrets.PLP_PASSWORD }}
         run: |
-          echo "🟢 Terminal ${{ matrix.id }} started"
-          touch terminal_${{ matrix.id }}.log
+          echo "🟢 Terminal ${{ steps.calc.outputs.TERMINAL_NUM }} started"
+          touch terminal_${{ steps.calc.outputs.TERMINAL_NUM }}.log
 
           while true; do
-            echo "[Terminal ${{ matrix.id }}] 🕒 $(date) - Running script..." | tee -a terminal_${{ matrix.id }}.log
-            python3 login_automation.py >> terminal_${{ matrix.id }}.log 2>&1 || echo "[Terminal ${{ matrix.id }}] ❌ Script failed" | tee -a terminal_${{ matrix.id }}.log
+            echo "[Terminal ${{ steps.calc.outputs.TERMINAL_NUM }}] 🕒 $(date) - Running script..." | tee -a terminal_${{ steps.calc.outputs.TERMINAL_NUM }}.log
+            python3 login_automation.py >> terminal_${{ steps.calc.outputs.TERMINAL_NUM }}.log 2>&1 || echo "[Terminal ${{ steps.calc.outputs.TERMINAL_NUM }}] ❌ Script failed" | tee -a terminal_${{ steps.calc.outputs.TERMINAL_NUM }}.log
             sleep 0.5
           done
